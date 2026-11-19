@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-19
+
 ### Changed
 
 - Depends on `weirdnet-agent` `"0.4"` (any 0.4.x, 0.4.1 and later included) instead of exactly `=0.4.0`, so agent patch releases no longer need a weirdnet-semcache release. Raw prompts (agent 0.4.1 `Input::Prompt`) are not cached: `ExactCache` still takes inline messages only.

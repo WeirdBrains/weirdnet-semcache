@@ -1,6 +1,6 @@
 [package]
 name = "weirdnet-semcache"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 rust-version = "1.99"
 description = "Weirdnet answer cache for inference nodes: the AnswerCache trait, a pluggable AnswerStore, and an exact-match cache for deterministic weirdnet-agent infer/2 requests."
