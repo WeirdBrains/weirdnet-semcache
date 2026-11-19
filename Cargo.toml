@@ -1,0 +1,19 @@
+[package]
+name = "weirdnet-semcache"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+description = "Weirdnet answer cache for inference nodes: the AnswerCache trait, a pluggable AnswerStore, and an exact-match cache for deterministic weirdnet-agent infer/2 requests."
+authors = ["m3talsmith <m3talsmith@gmail.com>"]
+license = "BSD-3-Clause"
+repository = "https://github.com/WeirdBrains/weirdnet-semcache"
+documentation = "https://docs.rs/weirdnet-semcache"
+readme = "README.md"
+keywords = ["llm", "cache", "inference", "weirdnet"]
+categories = ["caching"]
+include = ["src/**", "README.md", "CHANGELOG.md", "LICENSE"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+sha2 = "0.10"
+weirdnet-agent = "=0.4.0"
