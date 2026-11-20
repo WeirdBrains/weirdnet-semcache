@@ -240,7 +240,7 @@ impl<S: AnswerStore> AnswerCache for ExactCache<S> {
 mod tests {
     use super::*;
     use weirdnet_agent::remote::infer::v2::{ContextRef, Sampling};
-    use weirdnet_agent::{Message, ToolSpec};
+    use weirdnet_agent::{ContentPart, Message, ToolSpec};
 
     fn req(temp: f32, text: &str) -> Request {
         let mut s = Sampling::default();
@@ -273,6 +273,23 @@ mod tests {
         ctx.sampling.temperature = Some(0.0);
         assert!(!deterministic(&ctx));
         assert!(exact_key("m", &ctx).is_none());
+    }
+
+    #[test]
+    fn image_parts_are_part_of_the_key() {
+        let with = |url: &str| {
+            let mut s = Sampling::default();
+            s.temperature = Some(0.0);
+            let parts = vec![ContentPart::text("what is this?"), ContentPart::image(url)];
+            Request::messages(vec![Message::user(parts)]).with_sampling(s)
+        };
+        let (a, b) = (with("data:image/png;base64,AAAA"), with("data:image/png;base64,BBBB"));
+        assert!(deterministic(&a));
+        let c = ExactCache::new(2);
+        c.put("m", &a, &answer());
+        assert_eq!(c.get("m", &a), Some(answer()));
+        assert!(c.get("m", &b).is_none(), "a different image is a different request");
+        assert!(c.get("m", &req(0.0, "what is this?")).is_none(), "text alone is a different request");
     }
 
     #[test]

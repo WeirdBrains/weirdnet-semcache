@@ -2,7 +2,7 @@
 
 The answer cache for Weirdnet inference nodes. Before an inference node routes a prompt it asks
 the cache; afterwards it offers the finished answer. Requests and answers are
-[`weirdnet-agent`](https://crates.io/crates/weirdnet-agent) 0.4 infer/2 types.
+[`weirdnet-agent`](https://crates.io/crates/weirdnet-agent) 0.5 infer/2 types.
 
 - `AnswerCache`: the seam, `get(model, request)` and `put(model, request, answer)`.
 - `CachedAnswer`: text, reasoning, tool calls, finish reason, usage and model; `From<&Answer>`
@@ -24,9 +24,6 @@ if let Some(hit) = cache.get("qwen3-8b", &request) {
 // after a finished answer:
 cache.put("qwen3-8b", &request, &CachedAnswer::from(&answer));
 ```
-
-Not here yet: semantic matching (nearest stored prompt by embedding, with a distance threshold)
-and shared or persistent stores.
 
 ## License
 
