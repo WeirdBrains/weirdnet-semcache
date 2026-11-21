@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-20
+
 ### Changed
 
 - Depends on `weirdnet-agent` `"0.5"` (content parts; `Message::content` is a `Content`). Breaking, because `AnswerCache` takes agent `Request`s: move to agent 0.5 with it. Requests with image or audio parts are keyed like text ones.
