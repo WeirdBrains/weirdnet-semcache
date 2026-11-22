@@ -2,6 +2,16 @@
 
 Running log for [weirdnet-semcache](https://github.com/WeirdBrains/weirdnet-semcache), newest first. Shared rules: the collective `AGENTS.md` and this repo's [AGENTS.md](AGENTS.md).
 
+## 2026-11-22: released 0.2.1
+
+What changed: released with `scripts/weirdnet_release.py` (approved by Michael, 2026-11-22). Release commit [`e482c3a`](https://github.com/WeirdBrains/weirdnet-semcache/commit/e482c3a4b78abd5846217116c5885f63b14ec872), tag [`v0.2.1`](https://github.com/WeirdBrains/weirdnet-semcache/releases/tag/v0.2.1), on [crates.io](https://crates.io/crates/weirdnet-semcache/0.2.1) and [docs.rs](https://docs.rs/weirdnet-semcache/0.2.1).
+
+Checks run: the release script's checks (fmt, clippy `-D warnings`, tests, docs), `cargo publish` verification, CI on the release commit (green), the docs.rs pages for the new APIs.
+
+Not tested: no live node.
+
+What's left and next: nothing for this release; the [site pages](https://net.weirdbrains.com) are merged.
+
 ## 2026-11-22: ready for 0.2.1 (merge of `cache-mode`)
 
 What changed: reverted the branch-only CI commit ([`748847c`](https://github.com/WeirdBrains/weirdnet-semcache/commit/748847c5bf76259fe8bca5a082ce6cca712d0216)) and moved to [weirdnet-agent 0.5.1](https://crates.io/crates/weirdnet-agent/0.5.1) from crates.io with no `[patch.crates-io]` ([`05fd535`](https://github.com/WeirdBrains/weirdnet-semcache/commit/05fd535db287bdbb41ed2081e70401f2ac76334c)); merged into main with `--no-ff`. Release approved by Michael (2026-11-22).
