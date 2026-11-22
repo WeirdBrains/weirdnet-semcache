@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-22
+
 ### Added
 
 - `may_read` and `may_store`: the request's `CacheMode` (weirdnet-agent 0.5.1); `ExactCache` never reads for `bypass` or `refresh` and never stores for `bypass`.
