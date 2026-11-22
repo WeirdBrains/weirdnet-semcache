@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+
+- `may_read` and `may_store`: the request's `CacheMode` (weirdnet-agent 0.5.1); `ExactCache` never reads for `bypass` or `refresh` and never stores for `bypass`.
+- `AnswerCache::get_rev` / `put_rev` (default methods) and `exact_key_rev`: keys that include the model revision; with no revision the key is unchanged.
+
+### Changed
+
+- Requires weirdnet-agent 0.5.1.
+
 ## [0.2.0] - 2026-11-20
 
 ### Changed

@@ -16,4 +16,5 @@ include = ["src/**", "README.md", "CHANGELOG.md", "LICENSE"]
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 sha2 = "0.10"
-weirdnet-agent = "0.5"
+weirdnet-agent = "0.5.1"
+
