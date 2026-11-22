@@ -10,6 +10,12 @@
 //!   (temperature 0, no tools, inline messages) for the same model, and keeps only answers that
 //!   finished (`stop` or `length`).
 //! - [`NoCache`]: caches nothing.
+//! - [`may_read`] / [`may_store`]: the request's own [`CacheMode`](weirdnet_agent::remote::infer::v2::CacheMode) (`weirdnet-agent` 0.5.1):
+//!   `bypass` neither reads nor stores, `refresh` skips the read and stores the fresh answer.
+//!   [`ExactCache`] honours both.
+//! - Revisions: [`AnswerCache::get_rev`] / [`AnswerCache::put_rev`] and [`exact_key_rev`] key an
+//!   answer on the model's weights as well as its id, so a fine-tuned model under the same id
+//!   doesn't replay answers from the old weights.
 //!
 //! Semantic matching (nearest stored prompt by embedding) is not here yet.
 #![forbid(unsafe_code)]
@@ -69,6 +75,35 @@ pub trait AnswerCache: Send + Sync {
     fn get(&self, model: &str, request: &Request) -> Option<CachedAnswer>;
     /// Offers a finished answer; the cache decides whether to keep it.
     fn put(&self, model: &str, request: &Request, answer: &CachedAnswer);
+
+    /// A stored answer for `request` on `model` at weights `revision` (a Hugging Face commit, a
+    /// file hash, a fine-tune id). With no revision this is [`get`](Self::get). The default
+    /// misses when a revision is given, so a cache that doesn't key on revisions never replays
+    /// answers from other weights.
+    fn get_rev(&self, model: &str, revision: Option<&str>, request: &Request) -> Option<CachedAnswer> {
+        match revision {
+            None => self.get(model, request),
+            Some(_) => None,
+        }
+    }
+
+    /// Offers a finished answer from `model` at `revision`. The default keeps it only when no
+    /// revision is given (see [`get_rev`](Self::get_rev)).
+    fn put_rev(&self, model: &str, revision: Option<&str>, request: &Request, answer: &CachedAnswer) {
+        if revision.is_none() {
+            self.put(model, request, answer);
+        }
+    }
+}
+
+/// The request lets a cache answer it ([`CacheMode::Use`](weirdnet_agent::remote::infer::v2::CacheMode::Use)).
+pub fn may_read(request: &Request) -> bool {
+    request.cache.may_read()
+}
+
+/// The request lets a cache keep its answer ([`CacheMode::Use`](weirdnet_agent::remote::infer::v2::CacheMode::Use) or [`CacheMode::Refresh`](weirdnet_agent::remote::infer::v2::CacheMode::Refresh)).
+pub fn may_store(request: &Request) -> bool {
+    request.cache.may_store()
 }
 
 /// Caches nothing.
@@ -153,8 +188,17 @@ pub fn deterministic(request: &Request) -> bool {
     request.sampling.temperature == Some(0.0) && request.tools.is_empty() && matches!(request.input, Input::Messages(_))
 }
 
-/// The key for `request` on `model`, or `None` when it is not [`deterministic`].
+/// The key for `request` on `model`, or `None` when it is not [`deterministic`]. The same as
+/// [`exact_key_rev`] with no revision.
 pub fn exact_key(model: &str, request: &Request) -> Option<Key> {
+    exact_key_rev(model, None, request)
+}
+
+/// The key for `request` on `model` at weights `revision`, or `None` when it is not
+/// [`deterministic`]. With no revision the key is the 0.2.0 one (`v: 1`), so stored answers
+/// still hit; with one it is a `v: 2` key that includes it. The request's [`CacheMode`](weirdnet_agent::remote::infer::v2::CacheMode) is not
+/// part of the key, so `refresh` overwrites the entry `use` reads.
+pub fn exact_key_rev(model: &str, revision: Option<&str>, request: &Request) -> Option<Key> {
     if !deterministic(request) {
         return None;
     }
@@ -162,6 +206,8 @@ pub fn exact_key(model: &str, request: &Request) -> Option<Key> {
     struct Parts<'a> {
         v: u8,
         model: &'a str,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        revision: Option<&'a str>,
         input: &'a Input,
         sampling: &'a weirdnet_agent::remote::infer::v2::Sampling,
         seed: Option<u64>,
@@ -169,8 +215,9 @@ pub fn exact_key(model: &str, request: &Request) -> Option<Key> {
         raw: bool,
     }
     let parts = Parts {
-        v: 1,
+        v: if revision.is_some() { 2 } else { 1 },
         model,
+        revision,
         input: &request.input,
         sampling: &request.sampling,
         seed: request.seed,
@@ -211,9 +258,12 @@ impl<S: AnswerStore> ExactCache<S> {
     }
 }
 
-impl<S: AnswerStore> AnswerCache for ExactCache<S> {
-    fn get(&self, model: &str, request: &Request) -> Option<CachedAnswer> {
-        let key = exact_key(model, request)?;
+impl<S: AnswerStore> ExactCache<S> {
+    fn read(&self, key: Option<Key>, request: &Request) -> Option<CachedAnswer> {
+        if !may_read(request) {
+            return None;
+        }
+        let key = key?;
         let bytes = self.store.get(&key)?;
         match from_cbor::<CachedAnswer>(&bytes) {
             Ok(a) => Some(a),
@@ -225,21 +275,40 @@ impl<S: AnswerStore> AnswerCache for ExactCache<S> {
         }
     }
 
-    fn put(&self, model: &str, request: &Request, answer: &CachedAnswer) {
-        if !answer.complete() {
+    fn write(&self, key: Option<Key>, request: &Request, answer: &CachedAnswer) {
+        if !may_store(request) || !answer.complete() {
             return;
         }
-        let Some(key) = exact_key(model, request) else { return };
+        let Some(key) = key else { return };
         if let Ok(bytes) = to_cbor(answer) {
             self.store.put(&key, bytes);
         }
     }
 }
 
+/// Honours [`may_read`] and [`may_store`]; `get_rev` / `put_rev` key on the revision too.
+impl<S: AnswerStore> AnswerCache for ExactCache<S> {
+    fn get(&self, model: &str, request: &Request) -> Option<CachedAnswer> {
+        self.read(exact_key(model, request), request)
+    }
+
+    fn put(&self, model: &str, request: &Request, answer: &CachedAnswer) {
+        self.write(exact_key(model, request), request, answer);
+    }
+
+    fn get_rev(&self, model: &str, revision: Option<&str>, request: &Request) -> Option<CachedAnswer> {
+        self.read(exact_key_rev(model, revision, request), request)
+    }
+
+    fn put_rev(&self, model: &str, revision: Option<&str>, request: &Request, answer: &CachedAnswer) {
+        self.write(exact_key_rev(model, revision, request), request, answer);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use weirdnet_agent::remote::infer::v2::{ContextRef, Sampling};
+    use weirdnet_agent::remote::infer::v2::{CacheMode, ContextRef, Sampling};
     use weirdnet_agent::{ContentPart, Message, ToolSpec};
 
     fn req(temp: f32, text: &str) -> Request {
@@ -290,6 +359,74 @@ mod tests {
         assert_eq!(c.get("m", &a), Some(answer()));
         assert!(c.get("m", &b).is_none(), "a different image is a different request");
         assert!(c.get("m", &req(0.0, "what is this?")).is_none(), "text alone is a different request");
+    }
+
+    #[test]
+    fn bypass_neither_reads_nor_stores() {
+        let c = ExactCache::new(4);
+        let bypass = req(0.0, "a").with_cache(CacheMode::Bypass);
+        assert!(!may_read(&bypass) && !may_store(&bypass));
+        c.put("m", &bypass, &answer());
+        assert!(c.is_empty(), "bypass is not stored");
+        c.put("m", &req(0.0, "a"), &answer());
+        assert_eq!(c.get("m", &req(0.0, "a")), Some(answer()));
+        assert!(c.get("m", &bypass).is_none(), "bypass never reads");
+        assert_eq!(exact_key("m", &bypass), exact_key("m", &req(0.0, "a")), "the mode is not part of the key");
+    }
+
+    #[test]
+    fn refresh_overwrites_what_use_reads() {
+        let c = ExactCache::new(4);
+        let refresh = req(0.0, "a").with_cache(CacheMode::Refresh);
+        assert!(!may_read(&refresh) && may_store(&refresh));
+        c.put("m", &req(0.0, "a"), &CachedAnswer::new("m", "old", "stop"));
+        assert!(c.get("m", &refresh).is_none(), "refresh skips the read");
+        c.put("m", &refresh, &CachedAnswer::new("m", "new", "stop"));
+        assert_eq!(c.len(), 1);
+        assert_eq!(c.get("m", &req(0.0, "a")).map(|a| a.text), Some("new".into()));
+        // Also through the revision methods.
+        c.put_rev("m", Some("r1"), &refresh, &CachedAnswer::new("m", "r1", "stop"));
+        assert_eq!(c.get_rev("m", Some("r1"), &req(0.0, "a")).map(|a| a.text), Some("r1".into()));
+        assert!(c.get_rev("m", Some("r1"), &refresh).is_none());
+    }
+
+    #[test]
+    fn revisions_key_on_the_weights() {
+        let r = req(0.0, "a");
+        // No revision: the 0.2.0 key, so answers stored before still hit.
+        assert_eq!(exact_key_rev("m", None, &r), exact_key("m", &r));
+        let v1 = exact_key_rev("m", Some("r1"), &r).unwrap();
+        assert_ne!(Some(v1), exact_key("m", &r));
+        assert_ne!(Some(v1), exact_key_rev("m", Some("r2"), &r));
+
+        let c = ExactCache::new(4);
+        c.put_rev("m", Some("r1"), &r, &CachedAnswer::new("m", "from r1", "stop"));
+        assert!(c.get_rev("m", Some("r2"), &r).is_none(), "new weights don't replay old answers");
+        assert!(c.get("m", &r).is_none());
+        assert_eq!(c.get_rev("m", Some("r1"), &r).map(|a| a.text), Some("from r1".into()));
+        c.put_rev("m", None, &r, &answer());
+        assert_eq!(c.get("m", &r), Some(answer()));
+    }
+
+    #[test]
+    fn default_revision_methods_never_cross_weights() {
+        struct Plain(ExactCache);
+        impl AnswerCache for Plain {
+            fn get(&self, model: &str, request: &Request) -> Option<CachedAnswer> {
+                self.0.get(model, request)
+            }
+            fn put(&self, model: &str, request: &Request, answer: &CachedAnswer) {
+                self.0.put(model, request, answer)
+            }
+        }
+        let p = Plain(ExactCache::new(4));
+        let r = req(0.0, "a");
+        p.put_rev("m", Some("r1"), &r, &answer());
+        assert!(p.0.is_empty(), "a revision-blind cache keeps nothing for a revision");
+        p.put_rev("m", None, &r, &answer());
+        assert_eq!(p.get_rev("m", None, &r), Some(answer()));
+        assert!(p.get_rev("m", Some("r1"), &r).is_none());
+        assert!(NoCache.get_rev("m", None, &r).is_none());
     }
 
     #[test]
