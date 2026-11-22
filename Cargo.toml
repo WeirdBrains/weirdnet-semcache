@@ -16,9 +16,5 @@ include = ["src/**", "README.md", "CHANGELOG.md", "LICENSE"]
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 sha2 = "0.10"
-weirdnet-agent = "0.5"
+weirdnet-agent = "0.5.1"
 
-# Branch only: the CacheMode commit for weirdnet-agent 0.5.1, not on crates.io yet. Before
-# merging to main: require "0.5.1" above and drop this section.
-[patch.crates-io]
-weirdnet-agent = { git = "https://github.com/WeirdBrains/weirdnet-agent", rev = "64fadb3" }
