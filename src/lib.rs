@@ -17,8 +17,15 @@
 //!   answer on the model's weights as well as its id, so a fine-tuned model under the same id
 //!   doesn't replay answers from the old weights.
 //!
-//! Semantic matching (nearest stored prompt by embedding) is not here yet.
+//! - [`SemanticCache`]: similarity lookup by embedding. The caller embeds the prompt; the
+//!   nearest stored embedding in the same scope (see [`scope_key`]) stands in when its cosine
+//!   similarity reaches the threshold. Bounded and least-recently-used, with an optional TTL and
+//!   a CBOR [`snapshot`](SemanticCache::snapshot) / [`restore`](SemanticCache::restore).
 #![forbid(unsafe_code)]
+
+mod semantic;
+
+pub use semantic::{DEFAULT_THRESHOLD, Lookup, SemanticCache, SemanticConfig, SemanticError, SemanticStats, cosine_similarity, normalize, scope_key};
 
 use std::collections::HashMap;
 use std::sync::Mutex;

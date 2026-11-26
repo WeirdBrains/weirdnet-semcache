@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- `SemanticCache`: similarity lookup by embedding (cosine), with a configurable threshold, scopes, dimension checks, least-recently-used eviction, an optional TTL, stats, and CBOR snapshots.
+- `scope_key`, `cosine_similarity` and `normalize` helpers.
+
 ## [0.2.1] - 2026-11-22
 
 ### Added
