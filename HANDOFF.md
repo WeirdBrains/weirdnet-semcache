@@ -2,6 +2,16 @@
 
 Running log for [weirdnet-semcache](https://github.com/WeirdBrains/weirdnet-semcache), newest first. Shared rules: the collective `AGENTS.md` and this repo's [AGENTS.md](AGENTS.md).
 
+## 2026-11-26: `SemanticCache`, similarity lookup by embedding (for 0.2.2)
+
+What changed: `SemanticCache<V = CachedAnswer>` ([`f20cdf4`](https://github.com/WeirdBrains/weirdnet-semcache/commit/f20cdf42621f6c7c124f8806b0ff61df33f20fdf)): the caller embeds the prompt; the nearest stored embedding in the same scope stands in when its cosine similarity reaches the threshold (default 0.95). `SemanticConfig` (max entries, threshold, optional TTL, optional fixed dimension), `Lookup::Hit { value, score, id }` / `Lookup::Miss { best }`, `SemanticError`, `SemanticStats`, least-recently-used eviction across scopes, `remove` / `remove_scope` / `clear`, and a CBOR `snapshot` / `restore`. Helpers `scope_key`, `cosine_similarity`, `normalize`. No new dependencies; `ExactCache` and every existing API are unchanged. Requested for [Ymir](https://github.com/WeirdBrains/ymir). CI now runs on Linux, macOS and Windows and builds docs with `-D warnings` ([`b6fbb6a`](https://github.com/WeirdBrains/weirdnet-semcache/commit/b6fbb6a64959b9c0bfbc524caf5686a1a2b6c84a)). Additive, so a patch release, 0.2.2.
+
+Checks run: `cargo fmt --check`, `cargo clippy --all-targets` with and without `--all-features` (`-D warnings`), `cargo test` (default, `--all-features`, `--no-default-features`: 23 tests, 12 new), `cargo doc --no-deps` with `-D warnings`, `cargo semver-checks` (no semver update required), `cargo package --locked`.
+
+Not tested: no live inference node or real embedding model; no benchmark of lookup cost (a linear scan per scope, meant for cache-sized entry counts).
+
+What's left and next: release 0.2.2 once CI on main is green, check crates.io and docs.rs, and add `SemanticCache` to the [site](https://net.weirdbrains.com).
+
 ## 2026-11-22: released 0.2.1
 
 What changed: released with `scripts/weirdnet_release.py` (approved by Michael, 2026-11-22). Release commit [`e482c3a`](https://github.com/WeirdBrains/weirdnet-semcache/commit/e482c3a4b78abd5846217116c5885f63b14ec872), tag [`v0.2.1`](https://github.com/WeirdBrains/weirdnet-semcache/releases/tag/v0.2.1), on [crates.io](https://crates.io/crates/weirdnet-semcache/0.2.1) and [docs.rs](https://docs.rs/weirdnet-semcache/0.2.1).
