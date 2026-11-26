@@ -2,6 +2,16 @@
 
 Running log for [weirdnet-semcache](https://github.com/WeirdBrains/weirdnet-semcache), newest first. Shared rules: the collective `AGENTS.md` and this repo's [AGENTS.md](AGENTS.md).
 
+## 2026-11-26: released 0.2.2
+
+What changed: released with `scripts/weirdnet_release.py --patch` (additive; `cargo semver-checks` found no semver update required). Release commit [`afcd9a7`](https://github.com/WeirdBrains/weirdnet-semcache/commit/afcd9a78847cd886cc1085827922c7c2b5e08634), tag [`v0.2.2`](https://github.com/WeirdBrains/weirdnet-semcache/releases/tag/v0.2.2), on [crates.io](https://crates.io/crates/weirdnet-semcache/0.2.2) and [docs.rs](https://docs.rs/weirdnet-semcache/0.2.2). The [site](https://net.weirdbrains.com/crates/semcache) shows 0.2.2.
+
+Checks run: the release script's checks (fmt, clippy `-D warnings`, tests, docs), `cargo publish` verification, CI on the release commit (green on Linux, macOS and Windows), the docs.rs page for `SemanticCache`.
+
+Not tested: no live node or real embedding model.
+
+What's left and next: nothing for this release.
+
 ## 2026-11-26: `SemanticCache`, similarity lookup by embedding (for 0.2.2)
 
 What changed: `SemanticCache<V = CachedAnswer>` ([`f20cdf4`](https://github.com/WeirdBrains/weirdnet-semcache/commit/f20cdf42621f6c7c124f8806b0ff61df33f20fdf)): the caller embeds the prompt; the nearest stored embedding in the same scope stands in when its cosine similarity reaches the threshold (default 0.95). `SemanticConfig` (max entries, threshold, optional TTL, optional fixed dimension), `Lookup::Hit { value, score, id }` / `Lookup::Miss { best }`, `SemanticError`, `SemanticStats`, least-recently-used eviction across scopes, `remove` / `remove_scope` / `clear`, and a CBOR `snapshot` / `restore`. Helpers `scope_key`, `cosine_similarity`, `normalize`. No new dependencies; `ExactCache` and every existing API are unchanged. Requested for [Ymir](https://github.com/WeirdBrains/ymir). CI now runs on Linux, macOS and Windows and builds docs with `-D warnings` ([`b6fbb6a`](https://github.com/WeirdBrains/weirdnet-semcache/commit/b6fbb6a64959b9c0bfbc524caf5686a1a2b6c84a)). Additive, so a patch release, 0.2.2.
