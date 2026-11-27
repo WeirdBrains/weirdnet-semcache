@@ -21,11 +21,31 @@
 //!   nearest stored embedding in the same scope (see [`scope_key`]) stands in when its cosine
 //!   similarity reaches the threshold. Bounded and least-recently-used, with an optional TTL and
 //!   a CBOR [`snapshot`](SemanticCache::snapshot) / [`restore`](SemanticCache::restore).
+//!
+//! Pool mode, several inference nodes sharing one cache (since 0.2.3):
+//!
+//! - [`ShardRing`] / [`ShardPlan`]: rendezvous hashing of a scope (or an exact [`Key`]) to a
+//!   home node and one replica; joins and leaves move only the shards they must.
+//! - [`SharedCacheReq`] / [`SharedCacheResp`]: the CBOR lookup / insert / remove protocol
+//!   ([`PROTOCOL`]), and [`SharedCacheHost`], which answers it from a node's own cache.
+//! - With the `pool` feature, `pool::PooledSemanticCache` (L1, the home, the replica on
+//!   failure, bounded timeouts, background replica writes, a miss whenever peers fail) over a
+//!   `pool::CacheTransport`, and `pool::serve` / `pool::DialerTransport` over `weirdnet-agent`
+//!   channels.
 #![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod semantic;
+mod shard;
+mod shared;
+
+#[cfg(feature = "pool")]
+#[cfg_attr(docsrs, doc(cfg(feature = "pool")))]
+pub mod pool;
 
 pub use semantic::{DEFAULT_THRESHOLD, Lookup, SemanticCache, SemanticConfig, SemanticError, SemanticStats, cosine_similarity, normalize, scope_key};
+pub use shard::{ShardPlan, ShardRing};
+pub use shared::{HostLimits, PROTOCOL, SharedCacheHost, SharedCacheReq, SharedCacheResp, WIRE_VERSION};
 
 use std::collections::HashMap;
 use std::sync::Mutex;

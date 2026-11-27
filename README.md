@@ -60,6 +60,52 @@ match cache.lookup(&scope, &embedding)? {
 }
 ```
 
+## Pool mode (shared cache)
+
+Several inference nodes in one pool can share one cache (since 0.2.3). Each entry lives on a
+**home** node and one **replica**, picked by rendezvous hashing of its scope (or exact key), so a
+lookup is one call and nothing is coordinated. All nodes must use the same embedding model and
+revision.
+
+- `ShardRing` / `ShardPlan`: the members and, per scope, `plan(scope)` (home and replica) and
+  `ranked(scope)`. When a node leaves, only its shards move, to their replica; when one joins,
+  it takes over only the shards it now ranks first for, and their old home becomes the replica.
+- `SharedCacheReq` / `SharedCacheResp`: the wire protocol on `PROTOCOL`
+  (`/weirdnet-semcache/shared/1`), CBOR with a version: `lookup`, `insert` (with the entry's age,
+  so a copy keeps its TTL), `remove_scope`, `exact_get` / `exact_put` / `exact_remove`, `ping`.
+- `SharedCacheHost`: answers those requests from a node's own `SemanticCache` (and, optionally,
+  an `AnswerStore` for exact entries), within `HostLimits` (scope length, dimensions, exact value
+  size). It doesn't authorize; the serving side does.
+- With the **`pool`** feature (no new dependencies beyond what `weirdnet-agent` already pulls in):
+  - `pool::PooledSemanticCache`: one node's view. `lookup` tries a local L1 copy, then the home
+    (its own shard when it is the home), then the replica when the home fails. `insert` writes
+    its own shard when it holds the shard, the home (waited for, bounded) and the replica (in the
+    background; `settle()` waits). `remove_scope` reaches every member. Every remote call has a
+    timeout, a failing node is skipped for `down_for`, and when no owner answers a lookup is a
+    `PoolLookup::Miss { degraded: true }`: **a cache outage never blocks inference.** Optional
+    read repair (`ask_replica_on_miss`) copies a replica's hit back to a new home. `exact_get` /
+    `exact_put` share exact entries the same way. `stats()` counts hits by source, misses,
+    timeouts, errors and skips.
+  - `pool::CacheTransport`: how a request reaches a node. `pool::DialerTransport` does it over a
+    `weirdnet-agent` `Dialer`, and `pool::serve(channel, caller, auth, host)` answers on the other
+    end after `auth` (for Weirdnet, the pool's `RosterAuth`) lets the caller in.
+
+```rust
+use std::sync::Arc;
+use weirdnet_semcache::pool::{DialerTransport, PoolConfig, PoolLookup, PooledSemanticCache};
+use weirdnet_semcache::{SemanticCache, SemanticConfig, scope_key};
+
+let shard = Arc::new(SemanticCache::with_config(SemanticConfig::new(4096).with_threshold(0.92)));
+let cache: PooledSemanticCache = PooledSemanticCache::new(my_peer_id, shard, Arc::new(DialerTransport::new(dialer)), PoolConfig::new());
+cache.set_nodes(inference_node_peer_ids); // this node included
+// serve cache.host() on weirdnet_semcache::PROTOCOL with weirdnet_semcache::pool::serve
+let scope = scope_key(&["qwen3-8b", revision, &system_prompt_hash]);
+match cache.lookup(&scope, &embedding).await? {
+    PoolLookup::Hit { value, .. } => { /* replay value.text */ }
+    _ => { /* run the model, then: */ cache.insert(&scope, &embedding, CachedAnswer::from(&answer)).await?; }
+}
+```
+
 ## License
 
 BSD-3-Clause.

@@ -316,6 +316,11 @@ impl<V: Clone> SemanticCache<V> {
     }
 
     fn lookup_at(&self, scope: &str, embedding: &[f32], now: Instant) -> Result<Lookup<V>, SemanticError> {
+        self.lookup_with_vector(scope, embedding, now).map(|(l, _)| l)
+    }
+
+    /// [`lookup`](Self::lookup), also returning the hit's stored (normalized) embedding.
+    pub(crate) fn lookup_with_vector(&self, scope: &str, embedding: &[f32], now: Instant) -> Result<(Lookup<V>, Option<Vec<f32>>), SemanticError> {
         let query = normalize(embedding)?;
         let mut g = self.lock();
         g.purge_expired(self.config.ttl, now);
@@ -324,19 +329,19 @@ impl<V: Clone> SemanticCache<V> {
         let tick = g.tick;
         let threshold = self.config.threshold;
         let best = g.scopes.get_mut(scope).and_then(|s| s.entries.iter_mut().map(|e| (dot(&e.vector, &query), e)).max_by(|a, b| a.0.total_cmp(&b.0)));
-        let result = match best {
+        let (result, vector) = match best {
             Some((score, e)) if score >= threshold => {
                 e.used = tick;
-                Lookup::Hit { value: e.value.clone(), score, id: e.id }
+                (Lookup::Hit { value: e.value.clone(), score, id: e.id }, Some(e.vector.clone()))
             }
-            other => Lookup::Miss { best: other.map(|(score, _)| score) },
+            other => (Lookup::Miss { best: other.map(|(score, _)| score) }, None),
         };
         if result.is_hit() {
             g.stats.hits += 1;
         } else {
             g.stats.misses += 1;
         }
-        Ok(result)
+        Ok((result, vector))
     }
 
     /// Stores `value` under `embedding` in `scope` and returns the entry's id. An entry with the
@@ -346,7 +351,7 @@ impl<V: Clone> SemanticCache<V> {
         self.insert_at(scope, embedding, value, Instant::now())
     }
 
-    fn insert_at(&self, scope: &str, embedding: &[f32], value: V, now: Instant) -> Result<u64, SemanticError> {
+    pub(crate) fn insert_at(&self, scope: &str, embedding: &[f32], value: V, now: Instant) -> Result<u64, SemanticError> {
         let vector = normalize(embedding)?;
         let mut g = self.lock();
         g.purge_expired(self.config.ttl, now);

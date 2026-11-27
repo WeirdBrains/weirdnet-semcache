@@ -3,7 +3,7 @@ name = "weirdnet-semcache"
 version = "0.2.2"
 edition = "2024"
 rust-version = "1.99"
-description = "Weirdnet answer cache for inference nodes: the AnswerCache trait, a pluggable AnswerStore, an exact-match cache for deterministic weirdnet-agent infer/2 requests, and an embedding-similarity cache."
+description = "Weirdnet answer cache for inference nodes: the AnswerCache trait, a pluggable AnswerStore, an exact-match cache for deterministic weirdnet-agent infer/2 requests, an embedding-similarity cache, and pool mode sharing one cache across inference nodes."
 authors = ["Weird Brains LLC"]
 license = "BSD-3-Clause"
 repository = "https://github.com/WeirdBrains/weirdnet-semcache"
@@ -13,8 +13,23 @@ keywords = ["llm", "cache", "inference", "weirdnet"]
 categories = ["caching"]
 include = ["src/**", "README.md", "CHANGELOG.md", "LICENSE"]
 
+[features]
+default = []
+# Pool mode's asking side and serving loop over weirdnet-agent channels (PooledSemanticCache,
+# CacheTransport, DialerTransport, serve). Both dependencies already come with weirdnet-agent.
+pool = ["dep:tokio", "dep:async-trait"]
+
 [dependencies]
+async-trait = { version = "0.1", optional = true }
 serde = { version = "1", features = ["derive"] }
 sha2 = "0.10"
+tokio = { version = "1", features = ["sync", "time", "rt"], optional = true }
 weirdnet-agent = "0.5.1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["sync", "time", "rt", "macros"] }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 

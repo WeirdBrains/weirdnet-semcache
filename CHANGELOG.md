@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- Pool mode, several inference nodes sharing one cache: `ShardRing` / `ShardPlan` (rendezvous hashing of a scope or exact key to a home node and one replica), the CBOR wire protocol `SharedCacheReq` / `SharedCacheResp` on `PROTOCOL` (`/weirdnet-semcache/shared/1`, `WIRE_VERSION` 1), and `SharedCacheHost` with `HostLimits`, which answers it from a node's own `SemanticCache` and an optional `AnswerStore`.
+- `pool` feature (opt-in; no dependencies beyond those `weirdnet-agent` already has): `pool::PooledSemanticCache` (L1, home, replica failover, bounded timeouts, down-node skipping, background replica writes, optional read repair, exact entries, `PoolStats`), `pool::CacheTransport`, `pool::DialerTransport` and `pool::serve` over `weirdnet-agent` channels.
+
 ## [0.2.2] - 2026-11-26
 
 ### Added

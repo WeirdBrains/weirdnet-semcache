@@ -260,8 +260,10 @@ dependencies = [
 name = "weirdnet-semcache"
 version = "0.2.2"
 dependencies = [
+ "async-trait",
  "serde",
  "sha2",
+ "tokio",
  "weirdnet-agent",
 ]
 
