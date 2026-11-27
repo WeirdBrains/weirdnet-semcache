@@ -2,6 +2,16 @@
 
 Running log for [weirdnet-semcache](https://github.com/WeirdBrains/weirdnet-semcache), newest first. Shared rules: the collective `AGENTS.md` and this repo's [AGENTS.md](AGENTS.md).
 
+## 2026-11-27: released 0.2.3
+
+What changed: released with `scripts/weirdnet_release.py --patch` (additive; `cargo semver-checks` against 0.2.2 found no semver update required, default and all features). Release commit [`0da67b9`](https://github.com/WeirdBrains/weirdnet-semcache/commit/0da67b93bba96536c809a5252a560003581eeae3), tag [`v0.2.3`](https://github.com/WeirdBrains/weirdnet-semcache/releases/tag/v0.2.3), on [crates.io](https://crates.io/crates/weirdnet-semcache/0.2.3) (features `default` and `pool`) and [docs.rs](https://docs.rs/weirdnet-semcache/0.2.3). The [site](https://net.weirdbrains.com/crates/semcache) shows 0.2.3 with a pool-mode guide section.
+
+Checks run: the release script's checks (fmt, clippy `-D warnings`, tests, docs), `cargo publish` verification, CI on the pool-mode commit and the release commit (green on Linux, macOS and Windows), the docs.rs page for `pool::PooledSemanticCache`.
+
+Not tested: no real network, relay or live inference node.
+
+What's left and next: Ymir M6 wires it (serve `PooledSemanticCache::host()` on `PROTOCOL` behind its roster auth, members from the pool's inference nodes).
+
 ## 2026-11-27: pool mode, a shared cache across inference nodes (for 0.2.3)
 
 What changed: inference nodes in one pool can share one cache, as [Ymir](https://github.com/WeirdBrains/ymir) M6 asks (its `DESIGN.md` "Shared semantic cache": rendezvous hashing to a home node plus one replica, one call per lookup). In the default build: `ShardRing` / `ShardPlan` (rendezvous hashing over SHA-256, score pinned by a test), the CBOR wire protocol `SharedCacheReq` / `SharedCacheResp` on `PROTOCOL` = `/weirdnet-semcache/shared/1` with `WIRE_VERSION` 1, and `SharedCacheHost` / `HostLimits`. Behind the new opt-in `pool` feature: `pool::PooledSemanticCache` (L1, home, replica on failure, per-call timeouts, down-node skipping, background replica writes with `settle()`, optional read repair, exact entries, `PoolStats`), `pool::CacheTransport`, `pool::DialerTransport` and `pool::serve` over `weirdnet-agent` channels. The `pool` feature adds `tokio` and `async-trait`, both already in the tree through `weirdnet-agent`; the default build adds nothing. `ExactCache`, `SemanticCache` and snapshots are unchanged. Additive, so a patch release, 0.2.3.
