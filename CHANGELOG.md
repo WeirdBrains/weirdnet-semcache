@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-11-27
+
 ### Added
 
 - Pool mode, several inference nodes sharing one cache: `ShardRing` / `ShardPlan` (rendezvous hashing of a scope or exact key to a home node and one replica), the CBOR wire protocol `SharedCacheReq` / `SharedCacheResp` on `PROTOCOL` (`/weirdnet-semcache/shared/1`, `WIRE_VERSION` 1), and `SharedCacheHost` with `HostLimits`, which answers it from a node's own `SemanticCache` and an optional `AnswerStore`.
